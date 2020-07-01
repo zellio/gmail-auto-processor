@@ -7,7 +7,7 @@ var Filter = (function() {
     size: 5,
     has_attachment: 6,
     regex: 7,
-    disalbed: 8,
+    disabled: 8,
     // intentionally_left_blank = 9
     label: 10,
     mark_read: 11, 
