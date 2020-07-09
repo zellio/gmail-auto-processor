@@ -3,31 +3,27 @@ var Labels = (function () {
     if (typeof Labels.config === 'undefined') {
       Labels.config = new Config();
     }
-    
+
     if (typeof Labels.labels === 'undefined') {
       Labels.labels = [];
-    }
-    
-    // build shared cache if this is the first call
-    if (Labels.labels.length == 0) {
       build_label_cache.call(this);
     }
   }
-  
+
   function build_label_cache() {
     let response = Gmail.Users.Labels.list(Labels.config.emailAddress);
     response.labels.forEach(label => Labels.labels.push(new Label(label.id, label.name)));
   }
-  
+
   function flush_label_cache() {
-    labels.length = 0;
+    Labels.labels.length = 0;
   }
-  
+
   function refresh_cache() {
     flush_label_cache.call(this);
     build_label_cache.call(this);
   }
-  
+
   Labels.prototype = {
     refreshCache: refresh_cache,
     get: function(index) {
@@ -46,24 +42,31 @@ var Labels = (function () {
       return Labels.labels.map(label => label.id);
     },
     nameExists: function (name) {
-      return this.names.some(n => n == name);
+      let transformed_name = Label.nameTransform(name);
+      return this.names.some(n => n == transformed_name);
     },
     getByName: function(name) {
-      return Labels.labels.find(label => label.name == name);
+      let transformed_name = Label.nameTransform(name);
+      return Labels.labels.find(label => label.name == transformed_name);
+    },
+    createLabel: function(name) {
+      if (Label.validName(name)) {
+        return GmailApp.createLabel(name);
+      }
     },
     getByNameCacheAware: function(name) {
       let label = this.getByName(name);
       if (label) {
         return label;
       }
-      
-      GmailApp.createLabel(name);
+
+      this.createLabel(name);
       this.refreshCache();
-      
+
       return this.getByName(name);
     },
   };
-  
+
   Object.defineProperties(Labels.prototype, {
     length: {
       get: function() {
@@ -74,6 +77,6 @@ var Labels = (function () {
       }
     },
   });
-  
+
   return Labels;
 }());

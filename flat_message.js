@@ -1,63 +1,74 @@
-var FlatMessage = (function() { 
+var FlatMessage = (function() {
   function FlatMessage(message) {
     if (typeof FlatMessage.config === 'undefined') {
       FlatMessage.config = new Config();
     }
-    
+
     if (typeof FlatMessage.labels === 'undefined') {
       FlatMessage.labels = new Labels();
     }
-    
+
     this._message = message;
   }
 
   function contains_words(words) {
     return words.length != 0 && words.reduce(
-      (accumulator, word) => !!(this.plainBody.match(word)) && accumulator, true); 
+      (accumulator, word) => !!(this.plainBody.match(word)) && accumulator, true);
   }
-  
+
+  function modify_labels(add = [], remove = []) {
+    if (add && !Array.isArray(add)) {
+      add = [ add ];
+    }
+
+    if (remove && !Array.isArray(remove)) {
+      remove = [ remove ];
+    }
+
+    let resource = Gmail.newModifyMessageRequest();
+    resource.addLabelIds = add.map(name => FlatMessage.labels.getByNameCacheAware(name).id);
+    resource.removeLabelIds = remove.map(name => FlatMessage.labels.getByNameCacheAware(name).id);
+
+    return Gmail.Users.Messages.modify(resource, FlatMessage.config.emailAddress, this.id);
+  }
+
   function apply_label(name) {
-    let label = FlatMessage.labels.getByNameCacheAware(name);
-    let resource = Gmail.newModifyMessageRequest();
-    resource.addLabelIds = [ label.id ];
-    return Gmail.Users.Messages.modify(resource, FlatMessage.config.emailAddress, this.id);
+    return this.modifyLabels(name, undefined);
   }
-  
+
   function remove_label(name) {
-    let label = FlatMessage.labels.getByNameCacheAware(name);
-    let resource = Gmail.newModifyMessageRequest();
-    resource.removeLabelIds = [ label.id ];
-    return Gmail.Users.Messages.modify(resource, FlatMessage.config.emailAddress, this.id);
+    return this.modifyLabels(undefined, name);
   }
-  
+
   function mark_read() {
     return this._message.markRead();
   }
-  
+
   function archive() {
     return this.removeLabel('INBOX');
   }
-  
+
   function trash() {
     return this._message.moveToTrash();
   }
 
   FlatMessage.prototype = {
     containsWords: contains_words,
+    modifyLabels: modify_labels,
     applyLabel: apply_label,
     removeLabel: remove_label,
     markRead: mark_read,
     archive: archive,
     trash: trash,
   };
-  
+
   function explode_email_csv(str) {
-    let extract_regex = /\s*(?:(.+)\s+)?<(.+)>/g;
+    let extract_regex = /\s*(?:(.+)\s+)?<(.+)>/;
     let ret = [];
-    
+
     str.split(/,\s*/).forEach(function (email) {
       let matches = extract_regex.exec(email) || [];
-      
+
       if (matches.length > 0) {
         ret.push(new Contact(matches[2], matches[1]));
       }
@@ -65,10 +76,10 @@ var FlatMessage = (function() {
         ret.push(new Contact(email, undefined));
       }
     });
-      
+
     return ret;
   }
-  
+
   Object.defineProperties(FlatMessage.prototype, {
     bcc: {
       get: function() {
@@ -98,6 +109,11 @@ var FlatMessage = (function() {
         return this._from;
       }
     },
+    list_id: {
+      get: function() {
+        return explode_email_csv(this._message.getHeader('List-ID'));
+      }
+    },
     // header
     id: {
       get: function() {
@@ -119,7 +135,7 @@ var FlatMessage = (function() {
     to: {
       get: function() {
         this._to = this._to || explode_email_csv(this._message.getTo());
-        return this._to; 
+        return this._to;
       }
     },
     subject: {
@@ -145,7 +161,7 @@ var FlatMessage = (function() {
     size: {
       get: function() {
         return this.rawContent.length + this.attachments.reduce(
-          (accumulator, attachment) => accumulator + attachment.getSize(), 0); 
+          (accumulator, attachment) => accumulator + attachment.getSize(), 0);
       }
     },
     plainBody: {

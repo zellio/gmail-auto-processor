@@ -2,27 +2,32 @@ var Filter = (function() {
   let columns = {
     from: 1,
     to: 2,
-    subject: 3,
-    has_the_words: 4,
-    size: 5,
-    has_attachment: 6,
-    regex: 7,
-    disabled: 8,
-    // intentionally_left_blank = 9
-    label: 10,
-    mark_read: 11, 
-    archive: 12,
-    trash: 13,
+    list: 3,
+    subject: 4,
+    has_the_words: 5,
+    size: 6,
+    has_attachment: 7,
+    regex: 8,
+    disabled: 9,
+    // intentionally_left_blank = 10,
+    label: 11,
+    mark_read: 12,
+    archive: 13,
+    trash: 14,
   };
-  
+
   function Filter(row) {
+    if (typeof Filter.config === 'undefined') {
+      Filter.config = new Config();
+    }
+
     this._row = row;
   }
-  
+
   function cross_check_addr_to_contact(addrs, contacts) {
     return addrs.some(email => contacts.some(contact => contact.match(email)));
   }
-  
+
   let check_fns = {
     from: function(message) {
       return cross_check_addr_to_contact(
@@ -34,8 +39,13 @@ var Filter = (function() {
         this.to.trim().split(/,\s*/),
         message.to.concat(message.cc).concat(message.bcc));
     },
+    list: function(message) {
+      return cross_check_addr_to_contact(
+        this.list.trim().split(/,\s*/).map(id => `${id}.${Filter.config.domain}`),
+        message.list_id);
+    },
     subject: function(message) {
-      return this.subject.match(message.subject);
+      return message.subject.match(this.subject);
     },
     has_the_words: function(message) {
       return message.containsWords(this.has_the_words.split(/\s+/));
@@ -47,54 +57,56 @@ var Filter = (function() {
       return this.has_attachment && message.attachments.length > 0;
     },
     regex: function(message) {
-      return false;
+      throw new NotImplementedError('Filter.check_fns.regex');
     },
   };
-  
+
   function process(message) {
     if (this.disabled) {
       return;
     }
-    
-    let process_results = Object.entries(check_fns).map(function([key, val]) {
-      return this[key] && check_fns[key].call(this, message);
-    }.bind(this));
-    
 
-    
+    let process_results = Object.entries(check_fns).map(function([key, val]) {
+      if (this[key]) {
+        return val.call(this, message);
+      }
+
+      return false;
+    }.bind(this));
+
     return process_results.some(val => val);
   }
-  
-  function trigger(message) {    
+
+  function trigger(message) {
     if (this.label) {
       this.label.split(/,\s*/).forEach(label => message.applyLabel(label));
     }
-    
+
     if (this.mark_read) {
       message.markRead();
     }
-    
+
     if (this.archive) {
       message.archve();
     }
-    
+
     if (this.trash) {
       message.trash();
-    }    
+    }
   }
-  
+
   function execute(message) {
     if (this.process(message)) {
       this.trigger(message);
     }
   }
-  
+
   Filter.prototype = {
     process: process,
     trigger: trigger,
     execute: execute,
   };
-  
+
   // generate object getters/setters for config values
   Object.entries(columns).forEach(function([key, val]) {
     Object.defineProperty(Filter.prototype, key, {
@@ -103,6 +115,6 @@ var Filter = (function() {
       }
     });
   });
-  
+
   return Filter;
 }());

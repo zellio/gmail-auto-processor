@@ -3,12 +3,12 @@ var TemporalFilters = (function() {
     this._filters = [];
     build_filters.call(this);
   }
-  
+
   function build_filters() {
     this.values.forEach(
       row => row.some(val => val) && this._filters.push(new TemporalFilter(row)));
   }
-  
+
   TemporalFilters.prototype = {
    get: function(index) {
       return this._filters[index];
@@ -19,8 +19,11 @@ var TemporalFilters = (function() {
     forEach: function(callback) {
       return this._filters.forEach(callback);
     },
+    map: function(callback) {
+      return this._filters.map(callback);
+    },
   };
-  
+
   Object.defineProperties(TemporalFilters.prototype, {
     sheet: {
       get: function() {
@@ -48,6 +51,6 @@ var TemporalFilters = (function() {
       }
     },
   });
-  
+
   return TemporalFilters;
 }());

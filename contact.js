@@ -3,15 +3,15 @@ var Contact = (function () {
     this.name = name;
     this.email = email;
   }
-  
+
   function match(str) {
     return str == this.name || str == this.email || str == this.fullName;
   }
-  
+
   Contact.prototype = {
     match: match
   };
-  
+
   Object.defineProperties(Contact.prototype, {
     fullName: {
       get: function() {
@@ -24,6 +24,6 @@ var Contact = (function () {
       }
     },
   });
-  
+
   return Contact;
 }());
